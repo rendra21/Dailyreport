@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selisih Harian</title>
+<style>
+  :root {
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --ink: #1b2433;
+    --muted: #5d6879;
+    --line: #d5dbe4;
+    --accent: #2b4a8b;
+    --kurang: #b3261e;
+    --lebih: #9a6200;
+    --pas: #1d7a46;
+    --kurang-bg: #fbeceb;
+    --lebih-bg: #fbf2e0;
+    --pas-bg: #e6f4ec;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a24;
+      --panel: #1c2432;
+      --ink: #e8ecf3;
+      --muted: #9aa5b8;
+      --line: #313c50;
+      --accent: #8fb0f2;
+      --kurang: #ff8c84;
+      --lebih: #f0c06a;
+      --pas: #6fd49a;
+      --kurang-bg: #3a2325;
+      --lebih-bg: #372e1b;
+      --pas-bg: #1d3328;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 820px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  label.t { display: block; font-weight: 600; margin-bottom: 8px; }
+  textarea {
+    width: 100%;
+    min-height: 360px;
+    resize: vertical;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  textarea:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.main { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.main { color: #101826; } }
+
+  .hasil-empty { color: var(--muted); }
+  .selisih {
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .selisih .lbl { font-size: .9rem; }
+  .selisih .angka {
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+  .selisih.kurang { background: var(--kurang-bg); color: var(--kurang); }
+  .selisih.lebih { background: var(--lebih-bg); color: var(--lebih); }
+  .selisih.pas { background: var(--pas-bg); color: var(--pas); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 7px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; white-space: nowrap; }
+  td.sub2 { padding-left: 16px; color: var(--muted); }
+  tr.tot td { font-weight: 600; }
+  .warn {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-left: 4px solid var(--lebih);
+    background: var(--lebih-bg);
+    border-radius: 4px;
+    font-size: .95rem;
+  }
+  .warn + .warn { margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Selisih laporan harian</h1>
+  <p class="sub">Tempel laporan di kiri. Hasilnya langsung muncul di kanan. Semua dihitung di browser, tanpa internet.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <label class="t" for="in">Laporan harian</label>
+      <textarea id="in" spellcheck="false" placeholder="Item terjual:
+5/Nov/2026
+
+Cash: 840.000
+QRIS: 222.000
+Shopee:
+——————
+Total Sales: 1.217.000
+Uang Real: 462.000
+
+Pengeluaran:
+- ilham : 217.500
+- Sanrio : 112.000"></textarea>
+      <div class="btns">
+        <button class="main" id="paste" type="button">Tempel dari clipboard</button>
+        <button id="clear" type="button">Hapus</button>
+      </div>
+    </section>
+
+    <section class="panel" aria-live="polite">
+      <div id="out" class="hasil-empty">Belum ada laporan.</div>
+      <div class="btns" id="copyrow" hidden>
+        <button id="copy" type="button">Salin hasil</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const num = s => { const d = (s || '').replace(/[^\d]/g, ''); return d ? parseInt(d, 10) : 0; };
+const rp = n => (n < 0 ? '-' : '') + 'Rp' + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function field(text, label) {
+  const m = text.match(new RegExp('^[ \\t]*' + label + '[ \\t]*:[ \\t]*([\\d.,]*)', 'im'));
+  return m ? num(m[1]) : 0;
+}
+
+function hitung(text) {
+  const cash = field(text, 'cash');
+  const qris = field(text, 'qris');
+  const shopee = field(text, 'shopee');
+  const totalTulis = field(text, 'total[ \\t]+sales');
+  const real = field(text, 'uang[ \\t]+real');
+
+  const tgl = (text.match(/\d{1,2}\/[A-Za-z]+\/\d{4}/) || [''])[0];
+
+  // Pengeluaran
+  const idx = text.search(/pengeluaran/i);
+  const bagian = idx >= 0 ? text.slice(idx) : '';
+  const items = [];
+  const re = /^[ \t]*[-–•][ \t]*(.+?)[ \t]*:[ \t]*([\d.,]+)[ \t]*$/gm;
+  let m;
+  while ((m = re.exec(bagian))) items.push({ nama: m[1], nilai: num(m[2]) });
+  const keluar = items.reduce((a, b) => a + b.nilai, 0);
+
+  // Subtotal yang ditulis manual (baris angka saja)
+  let subtotalTulis = 0;
+  const re2 = /^[ \t]*([\d.]+)[ \t]*$/gm;
+  while ((m = re2.exec(bagian))) subtotalTulis = num(m[1]);
+
+  const komponen = cash + qris + shopee;
+  const total = totalTulis || komponen;
+  const cashRumus = total - qris - shopee;
+  const seharusnya = cashRumus - keluar;
+  const selisih = real - seharusnya;
+
+  const warn = [];
+  if (totalTulis && totalTulis !== komponen) {
+    warn.push(`Cash + QRIS + Shopee = ${rp(komponen)}, beda ${rp(totalTulis - komponen)} dari Total Sales yang ditulis. Cek apakah ada yang belum diisi.`);
+  }
+  if (subtotalTulis && subtotalTulis !== keluar) {
+    warn.push(`Jumlah pengeluaran yang ditulis ${rp(subtotalTulis)}, hitungan sebenarnya ${rp(keluar)} (beda ${rp(subtotalTulis - keluar)}).`);
+  }
+  if (!real) warn.push('Uang Real belum terbaca atau masih kosong.');
+
+  return { tgl, cash, qris, shopee, total, cashRumus, items, keluar, seharusnya, real, selisih, warn };
+}
+
+function teksHasil(r) {
+  const baris = [];
+  if (r.tgl) baris.push(`Laporan ${r.tgl}`);
+  baris.push(
+    `Total Sales: ${rp(r.total)}`,
+    `QRIS: ${rp(r.qris)}`,
+    `Shopee: ${rp(r.shopee)}`,
+    `Cash (Total - QRIS - Shopee): ${rp(r.cashRumus)}`,
+    `Pengeluaran: ${rp(r.keluar)}`,
+    `Uang seharusnya: ${rp(r.seharusnya)}`,
+    `Uang real: ${rp(r.real)}`,
+    `Selisih: ${rp(r.selisih)}`
+  );
+  r.warn.forEach(w => baris.push('Catatan: ' + w));
+  return baris.join('\n');
+}
+
+let terakhir = '';
+
+function render() {
+  const text = $('in').value;
+  if (!text.trim()) {
+    $('out').className = 'hasil-empty';
+    $('out').textContent = 'Belum ada laporan.';
+    $('copyrow').hidden = true;
+    terakhir = '';
+    return;
+  }
+  const r = hitung(text);
+  const kelas = r.selisih === 0 ? 'pas' : r.selisih < 0 ? 'kurang' : 'lebih';
+  const ket = r.selisih === 0 ? 'Pas' : r.selisih < 0 ? 'Uang kurang' : 'Uang lebih';
+
+  let rows = `
+    <tr><td>Total Sales</td><td>${rp(r.total)}</td></tr>
+    <tr><td class="sub2">QRIS</td><td>${rp(r.qris)}</td></tr>
+    <tr><td class="sub2">Shopee</td><td>${rp(r.shopee)}</td></tr>
+    <tr class="tot"><td>Cash (Total − QRIS − Shopee)</td><td>${rp(r.cashRumus)}</td></tr>
+    <tr><td>Pengeluaran</td><td>${rp(r.keluar)}</td></tr>`;
+  r.items.forEach(i => { rows += `<tr><td class="sub2">${esc(i.nama)}</td><td>${rp(i.nilai)}</td></tr>`; });
+  rows += `
+    <tr class="tot"><td>Uang seharusnya</td><td>${rp(r.seharusnya)}</td></tr>
+    <tr class="tot"><td>Uang real</td><td>${rp(r.real)}</td></tr>`;
+
+  $('out').className = '';
+  $('out').innerHTML = `
+    <div class="selisih ${kelas}">
+      <div class="lbl">${esc(r.tgl ? 'Selisih ' + r.tgl : 'Selisih')} · ${ket}</div>
+      <div class="angka">${rp(r.selisih)}</div>
+    </div>
+    <table>${rows}</table>
+    ${r.warn.map(w => `<div class="warn">${esc(w)}</div>`).join('')}`;
+  $('copyrow').hidden = false;
+  terakhir = teksHasil(r);
+}
+
+$('in').addEventListener('input', render);
+$('clear').addEventListener('click', () => { $('in').value = ''; render(); $('in').focus(); });
+$('paste').addEventListener('click', async () => {
+  try {
+    $('in').value = await navigator.clipboard.readText();
+    render();
+  } catch (e) {
+    $('in').focus();
+    alert('Browser tidak mengizinkan baca clipboard. Klik kotak laporan lalu tekan Ctrl+V (atau tahan lalu Tempel di HP).');
+  }
+});
+$('copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(terakhir);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = terakhir; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  $('copy').textContent = 'Tersalin';
+  setTimeout(() => $('copy').textContent = 'Salin hasil', 1500);
+});
+</script>
+</body>
+</html>
